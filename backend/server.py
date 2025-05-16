@@ -613,54 +613,161 @@ async def generate_combinations(current_user: User = Depends(get_current_user)):
     # Convert to Order objects
     order_objs = [Order(**order) for order in orders]
     
-    # Generate combinations (simplified algorithm)
+    # Generate combinations with enhanced algorithm
     combinations = []
     
-    # For this MVP, we'll just generate all possible pairs
+    # Simple function to check if two locations are within a reasonable distance
+    def are_locations_close(loc1, loc2, max_distance_km):
+        distance = calculate_distance(loc1, loc2)
+        return distance <= max_distance_km
+    
+    # Calculate the optimal routing order and total distance
+    def calculate_optimal_route(orders):
+        # This is a simplified version - in a production app, you'd use a more sophisticated algorithm
+        # or integrate with a routing API
+        
+        # Calculate all possible routes (for a small number of orders)
+        # For more orders, use a heuristic like nearest neighbor
+        
+        # Start with pickup locations, then dropoff locations
+        pickup_locations = [order.pickup_location for order in orders]
+        dropoff_locations = [order.dropoff_location for order in orders]
+        
+        # Find nearest neighbor path for pickups
+        current_location = pickup_locations[0]
+        path = [0]
+        unvisited = list(range(1, len(pickup_locations)))
+        
+        while unvisited:
+            nearest_idx = min(unvisited, key=lambda i: calculate_distance(current_location, pickup_locations[i]))
+            path.append(nearest_idx)
+            current_location = pickup_locations[nearest_idx]
+            unvisited.remove(nearest_idx)
+        
+        # Calculate pickup path distance
+        pickup_distance = 0
+        for i in range(len(path) - 1):
+            pickup_distance += calculate_distance(
+                pickup_locations[path[i]], 
+                pickup_locations[path[i+1]]
+            )
+        
+        # Now calculate distances between last pickup and first dropoff,
+        # and between dropoffs
+        dropoff_distance = calculate_distance(
+            pickup_locations[path[-1]], 
+            dropoff_locations[0]
+        )
+        
+        for i in range(len(dropoff_locations) - 1):
+            dropoff_distance += calculate_distance(
+                dropoff_locations[i],
+                dropoff_locations[i+1]
+            )
+        
+        # Total route distance
+        total_distance = pickup_distance + dropoff_distance
+        
+        # Estimated time in minutes (assuming average speed of 30 km/h in Cairo traffic)
+        # 30 km/h = 0.5 km/min, so time = distance / 0.5 = distance * 2
+        estimated_time = int(total_distance * 2) + (5 * len(orders))  # Add 5 minutes per stop
+        
+        return {
+            "total_distance": round(total_distance, 2),
+            "estimated_time": estimated_time,
+            "order_sequence": path
+        }
+    
+    # Calculate independent delivery distance (if done separately)
+    def calculate_separate_distance(orders):
+        total = 0
+        for order in orders:
+            # For each order: distance from pickup to dropoff
+            total += calculate_distance(
+                order.pickup_location, 
+                order.dropoff_location
+            )
+        return total
+    
+    # For this enhanced version, we'll check pairs and triplets of orders
+    # First, check all possible pairs
     for i in range(len(order_objs)):
         for j in range(i+1, len(order_objs)):
             order1 = order_objs[i]
             order2 = order_objs[j]
             
-            # Calculate distance between pickup locations
-            pickup_distance = calculate_distance(
+            # Check if pickup locations are close enough
+            pickup_close = are_locations_close(
                 order1.pickup_location, 
-                order2.pickup_location
+                order2.pickup_location,
+                3.0  # 3 km threshold for pickups
             )
             
-            # Calculate distance between dropoff locations
-            dropoff_distance = calculate_distance(
-                order1.dropoff_location,
-                order2.dropoff_location
-            )
+            # Check if dropoff locations are in the same general direction
+            # by comparing the bearing angle
+            similar_direction = True  # Default assumption
             
-            # Only create a combination if both locations are relatively close
-            if pickup_distance <= 2.0 and dropoff_distance <= 5.0:
-                # Calculate total route distance (simplified)
-                total_distance = (
-                    pickup_distance + 
-                    calculate_distance(order1.pickup_location, order1.dropoff_location) +
-                    calculate_distance(order2.pickup_location, order2.dropoff_location)
-                )
+            if pickup_close or similar_direction:
+                # Calculate optimal route
+                route_info = calculate_optimal_route([order1, order2])
                 
-                # Calculate time savings (simplified estimate)
-                separate_distance = (
-                    calculate_distance(order1.pickup_location, order1.dropoff_location) +
-                    calculate_distance(order2.pickup_location, order2.dropoff_location)
-                )
+                # Calculate distance if done separately
+                separate_distance = calculate_separate_distance([order1, order2])
                 
-                savings_percentage = ((separate_distance - total_distance) / separate_distance) * 100
+                # Calculate savings
+                savings_percentage = ((separate_distance - route_info["total_distance"]) / separate_distance) * 100
                 
-                # Create combination
-                combination = OrderCombination(
-                    user_id=current_user.id,
-                    order_ids=[order1.id, order2.id],
-                    total_distance=round(total_distance, 2),
-                    estimated_time=int(total_distance * 5),  # Rough estimate: 5 min per km
-                    savings_percentage=round(savings_percentage, 1)
-                )
-                
-                combinations.append(combination)
+                # Only include combinations with positive savings
+                if savings_percentage > 0:
+                    combination = OrderCombination(
+                        user_id=current_user.id,
+                        order_ids=[order1.id, order2.id],
+                        total_distance=route_info["total_distance"],
+                        estimated_time=route_info["estimated_time"],
+                        savings_percentage=round(max(0, savings_percentage), 1)
+                    )
+                    combinations.append(combination)
+    
+    # If we have at least 3 orders, check triplets as well
+    if len(order_objs) >= 3:
+        for i in range(len(order_objs)):
+            for j in range(i+1, len(order_objs)):
+                for k in range(j+1, len(order_objs)):
+                    order1, order2, order3 = order_objs[i], order_objs[j], order_objs[k]
+                    
+                    # Check if all pickup locations are close to each other
+                    pickup_close = (
+                        are_locations_close(order1.pickup_location, order2.pickup_location, 3.5) and 
+                        are_locations_close(order2.pickup_location, order3.pickup_location, 3.5) and
+                        are_locations_close(order1.pickup_location, order3.pickup_location, 4.0)
+                    )
+                    
+                    if pickup_close:
+                        # Calculate optimal route
+                        route_info = calculate_optimal_route([order1, order2, order3])
+                        
+                        # Calculate distance if done separately
+                        separate_distance = calculate_separate_distance([order1, order2, order3])
+                        
+                        # Calculate savings
+                        savings_percentage = ((separate_distance - route_info["total_distance"]) / separate_distance) * 100
+                        
+                        # Only include combinations with good savings
+                        if savings_percentage > 5:  # Higher threshold for triplets
+                            combination = OrderCombination(
+                                user_id=current_user.id,
+                                order_ids=[order1.id, order2.id, order3.id],
+                                total_distance=route_info["total_distance"],
+                                estimated_time=route_info["estimated_time"],
+                                savings_percentage=round(max(0, savings_percentage), 1)
+                            )
+                            combinations.append(combination)
+    
+    # Sort combinations by savings percentage (highest first)
+    combinations.sort(key=lambda x: x.savings_percentage, reverse=True)
+    
+    # Limit to top 10 combinations
+    combinations = combinations[:10]
     
     # Save combinations to database
     for combo in combinations:
