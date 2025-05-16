@@ -555,6 +555,21 @@ async def get_orders(
     orders = await db.orders.find(query).sort("created_at", -1).to_list(50)
     return [Order(**order) for order in orders]
 
+@api_router.get("/orders/{order_id}", response_model=Order)
+async def get_order(
+    order_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    order = await db.orders.find_one({"id": order_id, "user_id": current_user.id})
+    
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found"
+        )
+    
+    return Order(**order)
+
 @api_router.put("/orders/{order_id}/status", response_model=Order)
 async def update_order_status(
     order_id: str,
