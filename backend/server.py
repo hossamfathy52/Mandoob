@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Enum
 import uuid
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
