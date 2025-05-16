@@ -1707,6 +1707,15 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route 
+              path="/history" 
+              element={
+                <ProtectedRoute>
+                  <OrderHistoryPage />
+                </ProtectedRoute>
+              } 
+            />
             
             <Route 
               path="/combinations" 
@@ -1722,6 +1731,24 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CombinationDetailPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/analytics" 
+              element={
+                <ProtectedRoute>
+                  <AnalyticsPage />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
                 </ProtectedRoute>
               } 
             />
