@@ -1175,6 +1175,14 @@ function OrdersPage() {
     window.open(url, '_blank');
   };
   
+  const formatCurrency = (amount) => {
+    if (!amount) return "N/A";
+    return new Intl.NumberFormat('ar-EG', {
+      style: 'currency',
+      currency: 'EGP'
+    }).format(amount);
+  };
+  
   return (
     <div className="container mx-auto px-4 py-8 mb-16">
       <h1 className="text-2xl font-bold mb-6">Orders</h1>
@@ -1224,10 +1232,10 @@ function OrdersPage() {
                 {orders.map(order => (
                   <div 
                     key={order.id} 
-                    className="border-b border-gray-200 last:border-b-0 py-4"
+                    className="border-b border-gray-200 last:border-b-0 py-6"
                   >
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                      <div>
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+                      <div className="flex-grow">
                         <div className="flex items-center mb-2">
                           <span className={`${getStatusColor(order.status)} text-xs px-2 py-1 rounded-full mr-2`}>
                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -1238,20 +1246,47 @@ function OrdersPage() {
                           <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
                             {order.app_name}
                           </span>
+                          
+                          {order.payment_amount && (
+                            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                              {formatCurrency(order.payment_amount)}
+                            </span>
+                          )}
                         </div>
                         
-                        <p className="text-sm mb-1">
-                          <span className="font-medium">Pickup:</span> {order.pickup_location.address}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Dropoff:</span> {order.dropoff_location.address}
-                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mt-3">
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <h4 className="text-sm font-semibold text-blue-800 mb-1">Pickup Location</h4>
+                            <p className="text-sm">{order.pickup_location.address}</p>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {order.pickup_location.latitude.toFixed(4)}, {order.pickup_location.longitude.toFixed(4)}
+                            </div>
+                          </div>
+                          
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <h4 className="text-sm font-semibold text-green-800 mb-1">Dropoff Location</h4>
+                            <p className="text-sm">{order.dropoff_location.address}</p>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {order.dropoff_location.latitude.toFixed(4)}, {order.dropoff_location.longitude.toFixed(4)}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {order.customer_name && (
+                          <div className="mt-2 text-sm">
+                            <span className="font-medium">Customer:</span> {order.customer_name}
+                          </div>
+                        )}
+                        
+                        <div className="mt-2 text-sm">
+                          <span className="font-medium">Order ID:</span> {order.order_reference}
+                        </div>
                       </div>
                       
-                      <div className="mt-3 md:mt-0 flex flex-wrap md:flex-nowrap space-y-2 md:space-y-0 md:space-x-2">
+                      <div className="mt-4 md:mt-0 md:ml-4 flex flex-wrap md:flex-col space-y-0 space-x-2 md:space-y-2 md:space-x-0">
                         <button
                           onClick={() => openInMaps(order.pickup_location, order.dropoff_location)}
-                          className="w-full md:w-auto px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-sm"
+                          className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded text-sm"
                         >
                           Open in Maps
                         </button>
@@ -1259,7 +1294,7 @@ function OrdersPage() {
                         {order.status === "pending" && (
                           <button
                             onClick={() => updateOrderStatus(order.id, "accepted")}
-                            className="w-full md:w-auto px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-sm"
+                            className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-sm"
                           >
                             Accept
                           </button>
@@ -1268,7 +1303,7 @@ function OrdersPage() {
                         {order.status === "accepted" && (
                           <button
                             onClick={() => updateOrderStatus(order.id, "in_progress")}
-                            className="w-full md:w-auto px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded text-sm"
+                            className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded text-sm"
                           >
                             Start Delivery
                           </button>
@@ -1277,7 +1312,7 @@ function OrdersPage() {
                         {order.status === "in_progress" && (
                           <button
                             onClick={() => updateOrderStatus(order.id, "completed")}
-                            className="w-full md:w-auto px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-sm"
+                            className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-sm"
                           >
                             Complete
                           </button>
@@ -1286,7 +1321,7 @@ function OrdersPage() {
                         {["pending", "accepted"].includes(order.status) && (
                           <button
                             onClick={() => updateOrderStatus(order.id, "cancelled")}
-                            className="w-full md:w-auto px-3 py-1 bg-red-50 text-red-700 border border-red-200 rounded text-sm"
+                            className="px-3 py-1 bg-red-50 text-red-700 border border-red-200 rounded text-sm"
                           >
                             Cancel
                           </button>
