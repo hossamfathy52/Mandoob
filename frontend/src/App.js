@@ -1520,13 +1520,8 @@ function CombinationsPage() {
     }
   };
   
-  const viewOrderDetails = async (combinationId) => {
-    // Here you would normally navigate to a details page
-    // For simplicity, we'll just show which orders are in this combination
-    const combination = combinations.find(combo => combo.id === combinationId);
-    if (combination) {
-      alert(`This combination includes ${combination.order_ids.length} orders`);
-    }
+  const viewOrderDetails = (combinationId) => {
+    navigate(`/combinations/${combinationId}`);
   };
   
   return (
