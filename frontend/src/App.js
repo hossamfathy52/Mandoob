@@ -1739,4 +1739,303 @@ function App() {
   );
 }
 
+function CombinationDetailPage() {
+  const { token } = useAuth();
+  const { combinationId } = useParams();
+  const navigate = useNavigate();
+  const [combination, setCombination] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [mapUrl, setMapUrl] = useState("");
+  
+  useEffect(() => {
+    const fetchCombinationDetails = async () => {
+      try {
+        const api = apiClient(token);
+        
+        // Fetch the combination
+        const combinationsResponse = await api.get(`${API}/combinations`);
+        const foundCombination = combinationsResponse.data.find(c => c.id === combinationId);
+        
+        if (!foundCombination) {
+          navigate("/combinations");
+          return;
+        }
+        
+        setCombination(foundCombination);
+        
+        // Fetch all orders
+        const ordersResponse = await api.get(`${API}/orders`);
+        const allOrders = ordersResponse.data;
+        
+        // Filter orders that are part of this combination
+        const combinationOrders = allOrders.filter(order => 
+          foundCombination.order_ids.includes(order.id)
+        );
+        
+        setOrders(combinationOrders);
+        
+        // Generate a map URL for the entire route
+        generateMapUrl(combinationOrders);
+        
+        setLoading(false);
+      } catch (error) {
+        console.error("Failed to fetch combination details:", error);
+        setLoading(false);
+        navigate("/combinations");
+      }
+    };
+    
+    fetchCombinationDetails();
+  }, [token, combinationId, navigate]);
+  
+  const generateMapUrl = (orderData) => {
+    if (!orderData || orderData.length === 0) return;
+    
+    // Create a Google Maps directions URL with multiple waypoints
+    let url = "https://www.google.com/maps/dir/?api=1";
+    
+    // Add origin (first pickup location)
+    const firstOrder = orderData[0];
+    url += `&origin=${firstOrder.pickup_location.latitude},${firstOrder.pickup_location.longitude}`;
+    
+    // Add destination (last dropoff location)
+    const lastOrder = orderData[orderData.length - 1];
+    url += `&destination=${lastOrder.dropoff_location.latitude},${lastOrder.dropoff_location.longitude}`;
+    
+    // Add waypoints (all other pickup and dropoff locations)
+    const waypoints = [];
+    
+    // Skip first pickup (origin) and last dropoff (destination)
+    for (let i = 1; i < orderData.length; i++) {
+      waypoints.push(`${orderData[i].pickup_location.latitude},${orderData[i].pickup_location.longitude}`);
+    }
+    
+    for (let i = 0; i < orderData.length - 1; i++) {
+      waypoints.push(`${orderData[i].dropoff_location.latitude},${orderData[i].dropoff_location.longitude}`);
+    }
+    
+    if (waypoints.length > 0) {
+      url += `&waypoints=${waypoints.join('|')}`;
+    }
+    
+    setMapUrl(url);
+  };
+  
+  const handleAccept = async () => {
+    try {
+      const api = apiClient(token);
+      await api.put(`${API}/combinations/${combinationId}/accept`);
+      navigate("/orders", { state: { acceptedCombination: true } });
+    } catch (error) {
+      console.error("Failed to accept combination:", error);
+    }
+  };
+  
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8 mb-16">
+        <div className="flex justify-center items-center h-40">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!combination) {
+    return (
+      <div className="container mx-auto px-4 py-8 mb-16">
+        <div className="text-center py-8">
+          <p className="text-gray-500">Combination not found</p>
+          <Link 
+            to="/combinations"
+            className="mt-4 inline-block text-blue-600 hover:text-blue-800"
+          >
+            Back to combinations
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto px-4 py-8 mb-16">
+      <div className="flex items-center mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="mr-3 text-gray-600 hover:text-gray-800"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-bold">Combination Details</h1>
+      </div>
+      
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+          <div>
+            <h2 className="text-xl font-semibold mb-2">
+              {orders.length} Orders Combination
+            </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                <span className="font-medium">{combination.savings_percentage}%</span> savings
+              </span>
+              
+              <span className="flex items-center text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">{combination.estimated_time}</span> minutes
+              </span>
+              
+              <span className="flex items-center text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                <span className="font-medium">{combination.total_distance}</span> km total
+              </span>
+            </div>
+          </div>
+          
+          {!combination.is_accepted && (
+            <button
+              onClick={handleAccept}
+              className="mt-4 md:mt-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200"
+            >
+              Accept Combination
+            </button>
+          )}
+        </div>
+        
+        {/* Map Preview - Simple placeholder as we don't have an actual API key */}
+        <div className="mb-6">
+          <h3 className="text-md font-medium text-gray-700 mb-2">Route Preview</h3>
+          <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+            {orders.length > 0 ? (
+              <div className="text-center p-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                <p className="text-gray-600">
+                  Route map from {orders[0]?.pickup_location.address} to {orders[orders.length-1]?.dropoff_location.address}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Total distance: {combination.total_distance} km
+                </p>
+              </div>
+            ) : (
+              <p className="text-gray-500">No route data available</p>
+            )}
+          </div>
+          
+          <div className="mt-3 text-center">
+            <a 
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Open in Google Maps
+            </a>
+          </div>
+        </div>
+        
+        {/* Order Route */}
+        <div>
+          <h3 className="text-md font-medium text-gray-700 mb-3">Delivery Route</h3>
+          <div className="space-y-1">
+            {orders.map((order, index) => (
+              <React.Fragment key={order.id}>
+                {/* Pickup */}
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-1 mr-3">
+                    <div className="h-8 w-8 bg-blue-500 text-white rounded-full flex items-center justify-center">
+                      {index + 1}P
+                    </div>
+                  </div>
+                  <div className="flex-grow p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center">
+                      <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mr-2">
+                        {order.app_name}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        Order #{order.order_reference}
+                      </span>
+                    </div>
+                    <p className="font-medium mt-1">Pickup: {order.pickup_location.address}</p>
+                    {order.payment_amount && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Amount: {new Intl.NumberFormat('ar-EG', {
+                          style: 'currency',
+                          currency: 'EGP'
+                        }).format(order.payment_amount)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Connecting line */}
+                <div className="flex justify-center">
+                  <div className="h-6 border-l-2 border-dashed border-gray-300"></div>
+                </div>
+                
+                {/* Dropoff */}
+                <div className="flex items-start">
+                  <div className="flex-shrink-0 pt-1 mr-3">
+                    <div className="h-8 w-8 bg-green-500 text-white rounded-full flex items-center justify-center">
+                      {index + 1}D
+                    </div>
+                  </div>
+                  <div className="flex-grow p-3 bg-green-50 rounded-lg">
+                    <p className="font-medium">Dropoff: {order.dropoff_location.address}</p>
+                    {order.customer_name && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Customer: {order.customer_name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Separator between orders */}
+                {index < orders.length - 1 && (
+                  <div className="flex justify-center">
+                    <div className="h-8 border-l-2 border-dotted border-gray-300"></div>
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Back
+        </button>
+        
+        {!combination.is_accepted && (
+          <button
+            onClick={handleAccept}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition duration-200"
+          >
+            Accept Combination
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default App;
