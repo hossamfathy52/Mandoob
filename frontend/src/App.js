@@ -958,29 +958,30 @@ function NotificationSimulatePage() {
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const navigate = useNavigate();
   
   // Preset templates for each app
   const templates = {
     Talabat: {
       title: "New Order from Talabat",
-      content: "You have a new order from McDonald's, Nasr City. Pickup from restaurant McDonald's, Nasr City. Deliver to 12 Abbas El Akkad St, Nasr City."
+      content: "You have a new order from McDonald's, Nasr City. Pickup from restaurant McDonald's, Nasr City. Deliver to 12 Abbas El Akkad St, Nasr City. Order amount: 125 EGP. Customer name: Ahmed Hassan."
     },
     Careem: {
       title: "New Ride Request",
-      content: "You have a new ride request. Pickup from Cairo Festival City Mall. Dropoff at Cairo International Airport."
+      content: "You have a new ride request. Pickup from Cairo Festival City Mall. Dropoff at Cairo International Airport. Fare: 180 EGP. Client: Mohamed Ali."
     },
     InDrive: {
       title: "New InDrive Delivery",
-      content: "New delivery request: 75 EGP. Pickup from Maadi Grand Mall. Dropoff at 15 Road 9, Maadi."
+      content: "New delivery request: 75 EGP. Pickup from Maadi Grand Mall. Dropoff at 15 Road 9, Maadi. Client requested fast delivery."
     },
     "Uber Eats": {
       title: "New Uber Eats Order",
-      content: "New food delivery: Pickup from KFC, Heliopolis. Deliver to 18 Cleopatra St, Heliopolis."
+      content: "New food delivery: Pickup from KFC, Heliopolis. Deliver to 18 Cleopatra St, Heliopolis. Order total: 210 EGP. Customer name: Sara Ahmed."
     },
     Instashop: {
       title: "New Instashop Order",
-      content: "New grocery order: Pickup from Carrefour, Downtown. Deliver to 24 Talaat Harb St, Downtown."
+      content: "New grocery order: Pickup from Carrefour, Downtown. Deliver to 24 Talaat Harb St, Downtown. Total amount: 350 EGP. Customer: Omar Ibrahim."
     }
   };
   
@@ -1019,6 +1020,64 @@ function NotificationSimulatePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const generateRandomOrder = () => {
+    const apps = Object.keys(templates);
+    const randomApp = apps[Math.floor(Math.random() * apps.length)];
+    
+    // Cairo neighborhoods
+    const neighborhoods = [
+      "Maadi", "Zamalek", "Nasr City", "Heliopolis", "Downtown", 
+      "6th of October", "New Cairo", "Garden City", "Mohandessin", "Dokki"
+    ];
+    
+    // Popular places
+    const places = [
+      "Cairo Festival City Mall", "Mall of Arabia", "City Stars", "Cairo International Airport",
+      "KFC", "McDonald's", "Starbucks", "Carrefour", "Mall of Egypt", "Grand Mall"
+    ];
+    
+    const randomPickupPlace = places[Math.floor(Math.random() * places.length)];
+    const randomNeighborhood = neighborhoods[Math.floor(Math.random() * neighborhoods.length)];
+    const randomStreetNumber = Math.floor(Math.random() * 200) + 1;
+    const randomStreet = `Street ${randomStreetNumber}`;
+    const randomAmount = Math.floor(Math.random() * 300) + 50;
+    
+    // Egyptian names
+    const names = [
+      "Ahmed Mohamed", "Sara Hassan", "Omar Ibrahim", "Mariam Khaled",
+      "Mohamed Ali", "Nour Mahmoud", "Amr Yousef", "Laila Hossam"
+    ];
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    
+    // Generate content based on app
+    let content = "";
+    switch (randomApp) {
+      case "Talabat":
+        content = `You have a new order from ${randomPickupPlace}. Pickup from restaurant ${randomPickupPlace}, ${randomNeighborhood}. Deliver to ${randomStreetNumber} ${randomStreet}, ${randomNeighborhood}. Order amount: ${randomAmount} EGP. Customer name: ${randomName}.`;
+        break;
+      case "Careem":
+        content = `You have a new ride request. Pickup from ${randomPickupPlace}. Dropoff at ${randomStreetNumber} ${randomStreet}, ${randomNeighborhood}. Fare: ${randomAmount} EGP. Client: ${randomName}.`;
+        break;
+      case "InDrive":
+        content = `New delivery request: ${randomAmount} EGP. Pickup from ${randomPickupPlace}, ${randomNeighborhood}. Dropoff at ${randomStreetNumber} ${randomStreet}, ${randomNeighborhood}. Client requested fast delivery.`;
+        break;
+      case "Uber Eats":
+        content = `New food delivery: Pickup from ${randomPickupPlace}, ${randomNeighborhood}. Deliver to ${randomStreetNumber} ${randomStreet}, ${randomNeighborhood}. Order total: ${randomAmount} EGP. Customer name: ${randomName}.`;
+        break;
+      case "Instashop":
+        content = `New grocery order: Pickup from ${randomPickupPlace}, ${randomNeighborhood}. Deliver to ${randomStreetNumber} ${randomStreet}, ${randomNeighborhood}. Total amount: ${randomAmount} EGP. Customer: ${randomName}.`;
+        break;
+      default:
+        content = templates[randomApp].content;
+    }
+    
+    setFormData({
+      app_name: randomApp,
+      title: `New Order from ${randomApp}`,
+      content
+    });
   };
   
   return (
@@ -1080,7 +1139,7 @@ function NotificationSimulatePage() {
               <textarea
                 id="content"
                 name="content"
-                rows="4"
+                rows="5"
                 value={formData.content}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
@@ -1090,6 +1149,58 @@ function NotificationSimulatePage() {
                 Make sure to include phrases like "Pickup from" and "Deliver to" or "Dropoff at"
                 so the app can extract order information.
               </p>
+            </div>
+
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => setAdvanced(!advanced)}
+                className="text-blue-600 text-sm hover:text-blue-800 flex items-center"
+              >
+                <span>{advanced ? 'Hide' : 'Show'} Advanced Options</span>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className={`h-4 w-4 ml-1 transition-transform ${advanced ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {advanced && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Advanced Options</h4>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        For our enhanced notification parser to work best, try to include:
+                      </p>
+                      <ul className="list-disc list-inside text-xs text-gray-600 space-y-1">
+                        <li>Pickup location with a phrase like "pickup from" or "restaurant"</li>
+                        <li>Dropoff location with phrases like "deliver to" or "dropoff at"</li>
+                        <li>Payment amount with currency (EGP)</li>
+                        <li>Customer name if available</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <button
+                        type="button"
+                        onClick={generateRandomOrder}
+                        className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-sm"
+                      >
+                        Generate Random Order
+                      </button>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Creates a randomized order notification with valid Cairo locations
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end">
