@@ -1721,6 +1721,15 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            <Route 
+              path="/combinations/:combinationId" 
+              element={
+                <ProtectedRoute>
+                  <CombinationDetailPage />
+                </ProtectedRoute>
+              } 
+            />
           </Routes>
           
           <MobileMenu />
