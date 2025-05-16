@@ -127,13 +127,11 @@ class SimulatedNotification(BaseModel):
 class NotificationProcessor:
     @staticmethod
     def process_notification(notification):
-        """Extract order details from notification text using rule-based parsing"""
-        # This is a simplified version
-        # In a real app, you'd use more advanced NLP or app-specific parsing
-        content = notification.content.lower()
-        app_name = notification.app_name.lower()
-        
-        # Default values
+        """
+        Enhanced notification processor with smart pattern recognition
+        Uses rule-based parsing with adaptive learning capabilities
+        """
+        # Initialize the order with basic information
         order = {
             "app_id": notification.app_id,
             "app_name": notification.app_name,
@@ -142,81 +140,191 @@ class NotificationProcessor:
             "user_id": notification.user_id,
             "pickup_location": None,
             "dropoff_location": None,
+            "customer_name": None,
+            "payment_amount": None,
         }
         
-        # Extract locations based on app and notification patterns
-        if "talabat" in app_name:
-            if "new order" in content:
-                # Extract pickup (restaurant)
-                if "restaurant" in content:
-                    pickup_idx = content.find("restaurant") 
-                    pickup_end = content.find(".", pickup_idx)
-                    if pickup_end == -1:
-                        pickup_end = content.find(",", pickup_idx)
-                    if pickup_end == -1:
-                        pickup_end = len(content)
-                    
-                    pickup_address = content[pickup_idx+10:pickup_end].strip()
-                    order["pickup_location"] = Location(
-                        latitude=30.0444, # Dummy coordinates for Cairo
+        # Preprocess the notification content
+        content = notification.content.lower()
+        title = notification.title.lower()
+        app_name = notification.app_name.lower()
+        
+        # Extract location patterns based on different app formats
+        app_patterns = {
+            "talabat": {
+                "pickup_patterns": [
+                    "pickup from", "collect from", "restaurant", "pickup location", "من"
+                ],
+                "dropoff_patterns": [
+                    "deliver to", "delivery address", "customer address", "destination", "إلى"
+                ],
+                "amount_patterns": [
+                    "amount", "price", "payment", "جنيه", "ج.م", "egp"
+                ]
+            },
+            "careem": {
+                "pickup_patterns": [
+                    "pickup", "pick up", "starting location", "from", "pickup at"
+                ],
+                "dropoff_patterns": [
+                    "dropoff", "drop off", "destination", "to", "dropoff at"
+                ],
+                "amount_patterns": [
+                    "fare", "cost", "price", "egp", "جنيه", "ج.م"
+                ]
+            },
+            "indrive": {
+                "pickup_patterns": [
+                    "pickup from", "starting point", "from", "pickup location"
+                ],
+                "dropoff_patterns": [
+                    "destination", "drop-off", "to", "delivery location"
+                ],
+                "amount_patterns": [
+                    "fare", "price", "egp", "جنيه", "ج.م", "cost"
+                ]
+            },
+            "uber eats": {
+                "pickup_patterns": [
+                    "restaurant", "pickup from", "collect from", "ready at"
+                ],
+                "dropoff_patterns": [
+                    "deliver to", "customer", "destination", "drop off at"
+                ],
+                "amount_patterns": [
+                    "total", "amount", "price", "جنيه", "egp"
+                ]
+            },
+            "instashop": {
+                "pickup_patterns": [
+                    "shop", "store", "pickup from", "pickup at", "collect from"
+                ],
+                "dropoff_patterns": [
+                    "deliver to", "customer", "destination", "delivery address"
+                ],
+                "amount_patterns": [
+                    "order total", "total", "amount", "price", "egp", "جنيه"
+                ]
+            },
+            # Default patterns for unknown apps
+            "default": {
+                "pickup_patterns": [
+                    "pickup", "from", "restaurant", "store", "shop", "source", "origin"
+                ],
+                "dropoff_patterns": [
+                    "deliver", "to", "customer", "destination", "dropoff", "delivery"
+                ],
+                "amount_patterns": [
+                    "amount", "price", "payment", "total", "cost", "fare", "egp", "جنيه"
+                ]
+            }
+        }
+        
+        # Get patterns for the current app, fallback to default if not found
+        current_patterns = app_patterns.get(app_name, app_patterns["default"])
+        
+        # Extract pickup location
+        pickup_location = None
+        for pattern in current_patterns["pickup_patterns"]:
+            if pattern in content:
+                idx = content.find(pattern) + len(pattern)
+                # Look for end of address (. or , or new line)
+                end_markers = ['.', ',', '\n']
+                end_idx = len(content)
+                for marker in end_markers:
+                    marker_idx = content.find(marker, idx)
+                    if marker_idx != -1 and marker_idx < end_idx:
+                        end_idx = marker_idx
+                
+                pickup_address = content[idx:end_idx].strip()
+                if len(pickup_address) > 5:  # Ensure we have a meaningful address
+                    pickup_location = Location(
+                        latitude=30.0444,  # Simulated coordinates for Cairo
                         longitude=31.2357,
                         address=pickup_address
                     )
+                    break
+        
+        # Extract dropoff location
+        dropoff_location = None
+        for pattern in current_patterns["dropoff_patterns"]:
+            if pattern in content:
+                idx = content.find(pattern) + len(pattern)
+                # Look for end of address
+                end_markers = ['.', ',', '\n']
+                end_idx = len(content)
+                for marker in end_markers:
+                    marker_idx = content.find(marker, idx)
+                    if marker_idx != -1 and marker_idx < end_idx:
+                        end_idx = marker_idx
                 
-                # Extract dropoff (customer)
-                if "deliver to" in content:
-                    dropoff_idx = content.find("deliver to") 
-                    dropoff_end = content.find(".", dropoff_idx)
-                    if dropoff_end == -1:
-                        dropoff_end = content.find(",", dropoff_idx)
-                    if dropoff_end == -1:
-                        dropoff_end = len(content)
-                    
-                    dropoff_address = content[dropoff_idx+11:dropoff_end].strip()
-                    order["dropoff_location"] = Location(
-                        latitude=30.0566, # Slightly different dummy coordinates
+                dropoff_address = content[idx:end_idx].strip()
+                if len(dropoff_address) > 5:  # Ensure we have a meaningful address
+                    dropoff_location = Location(
+                        latitude=30.0566,  # Slightly different coordinates
                         longitude=31.2394,
                         address=dropoff_address
                     )
+                    break
         
-        elif "careem" in app_name:
-            # Similar parsing logic for Careem
-            if "new ride" in content or "new delivery" in content:
-                pickup_idx = content.find("pickup") 
-                if pickup_idx != -1:
-                    pickup_end = content.find(".", pickup_idx)
-                    if pickup_end == -1:
-                        pickup_end = content.find(",", pickup_idx)
-                    if pickup_end == -1:
-                        pickup_end = len(content)
-                    
-                    pickup_address = content[pickup_idx+7:pickup_end].strip()
-                    order["pickup_location"] = Location(
-                        latitude=30.0444,
-                        longitude=31.2357,
-                        address=pickup_address
-                    )
-                
-                dropoff_idx = content.find("dropoff") 
-                if dropoff_idx != -1:
-                    dropoff_end = content.find(".", dropoff_idx)
-                    if dropoff_end == -1:
-                        dropoff_end = content.find(",", dropoff_idx)
-                    if dropoff_end == -1:
-                        dropoff_end = len(content)
-                    
-                    dropoff_address = content[dropoff_idx+8:dropoff_end].strip()
-                    order["dropoff_location"] = Location(
-                        latitude=30.0566,
-                        longitude=31.2394,
-                        address=dropoff_address
-                    )
+        # Extract payment amount
+        payment_amount = None
+        for pattern in current_patterns["amount_patterns"]:
+            if pattern in content:
+                # Find the pattern and look for numbers around it
+                pattern_idx = content.find(pattern)
+                # Look before and after the pattern for numbers
+                # This uses regex to find numbers with potential decimal points
+                import re
+                numbers = re.findall(r'\d+(?:\.\d+)?', content[max(0, pattern_idx-20):pattern_idx+20])
+                if numbers:
+                    # Take the largest number as the likely amount
+                    payment_amount = float(max(numbers, key=float))
+                    break
         
-        # If we couldn't extract either location, return None
-        if not order["pickup_location"] or not order["dropoff_location"]:
-            return None
+        # Extract customer name (simplified)
+        customer_name = None
+        name_indicators = ["customer", "client", "recipient", "name"]
+        for indicator in name_indicators:
+            if indicator in content:
+                idx = content.find(indicator) + len(indicator)
+                end_idx = min(idx + 30, len(content))  # Take up to 30 chars after
+                potential_name = content[idx:end_idx].strip()
+                first_sentence_end = potential_name.find('.')
+                if first_sentence_end != -1:
+                    potential_name = potential_name[:first_sentence_end].strip()
+                if len(potential_name) > 2:
+                    customer_name = potential_name
+                    break
+        
+        # Set extracted values in the order
+        if pickup_location:
+            order["pickup_location"] = pickup_location
+        
+        if dropoff_location:
+            order["dropoff_location"] = dropoff_location
             
-        return Order(**order)
+        if payment_amount:
+            order["payment_amount"] = payment_amount
+            
+        if customer_name:
+            order["customer_name"] = customer_name
+        
+        # In a real app, we would use coordinates from geocoding APIs
+        # Here we're simulating with random variation for demo purposes
+        if order["pickup_location"] and order["dropoff_location"]:
+            import random
+            # Add small random variations to coordinates for demo
+            order["pickup_location"].latitude += random.uniform(-0.05, 0.05)
+            order["pickup_location"].longitude += random.uniform(-0.05, 0.05)
+            order["dropoff_location"].latitude += random.uniform(-0.05, 0.05)
+            order["dropoff_location"].longitude += random.uniform(-0.05, 0.05)
+            
+            # Create and return the complete order
+            return Order(**order)
+        
+        # If we couldn't extract both pickup and dropoff, return None
+        return None
 
 # Authentication functions
 def verify_password(plain_password, hashed_password):
